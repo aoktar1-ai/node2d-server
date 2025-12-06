@@ -22,7 +22,7 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 // PostgreSQL connection
 const pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: false
 });
 
 // Middleware
