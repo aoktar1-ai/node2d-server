@@ -79,7 +79,8 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
-                is_active BOOLEAN DEFAULT true
+                is_active BOOLEAN DEFAULT true,
+                prefs JSONB DEFAULT '{}'::jsonb
             );
 
             -- Projects table
@@ -182,6 +183,12 @@ async function initDatabase() {
             CREATE INDEX IF NOT EXISTS idx_collaborators_user ON project_collaborators(user_id);
             CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_log(user_id);
         `);
+        
+        // Migration: Add prefs column if not exists
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS prefs JSONB DEFAULT '{}'::jsonb;
+        `);
+        
         console.log('Database initialized successfully');
     } finally {
         client.release();
@@ -1057,6 +1064,49 @@ app.get('/api/assets/:id', async (req, res) => {
     } catch (error) {
         console.error('Get asset error:', error);
         res.status(500).json({ error: 'Failed to get asset' });
+    }
+});
+
+// ==================== USER PREFERENCES ====================
+
+// Get user preferences
+app.get('/api/user/prefs', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT prefs FROM users WHERE id = $1`,
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ prefs: {} });
+        }
+
+        const prefs = result.rows[0].prefs || {};
+        res.json({ prefs });
+    } catch (error) {
+        console.error('Get prefs error:', error);
+        res.status(500).json({ error: 'Failed to get preferences' });
+    }
+});
+
+// Save user preferences
+app.put('/api/user/prefs', authenticateToken, async (req, res) => {
+    try {
+        const { prefs } = req.body;
+
+        if (typeof prefs !== 'object') {
+            return res.status(400).json({ error: 'Invalid prefs format' });
+        }
+
+        await pool.query(
+            `UPDATE users SET prefs = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [JSON.stringify(prefs), req.user.id]
+        );
+
+        res.json({ success: true, prefs });
+    } catch (error) {
+        console.error('Save prefs error:', error);
+        res.status(500).json({ error: 'Failed to save preferences' });
     }
 });
 
