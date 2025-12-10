@@ -1110,6 +1110,24 @@ app.put('/api/user/prefs', authenticateToken, async (req, res) => {
     }
 });
 
+// POST da kabul et (client uyumluluğu için)
+app.post('/api/user/prefs', authenticateToken, async (req, res) => {
+    try {
+        const { prefs } = req.body;
+        if (typeof prefs !== 'object') {
+            return res.status(400).json({ error: 'Invalid prefs format' });
+        }
+        await pool.query(
+            `UPDATE users SET prefs = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [JSON.stringify(prefs), req.user.id]
+        );
+        res.json({ success: true, prefs });
+    } catch (error) {
+        console.error('Save prefs error:', error);
+        res.status(500).json({ error: 'Failed to save preferences' });
+    }
+});
+
 // ==================== USER PROFILE ====================
 
 // Get user profile
